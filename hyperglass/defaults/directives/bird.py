@@ -13,6 +13,7 @@ __all__ = (
     "BIRD_BGPASPath",
     "BIRD_BGPCommunity",
     "BIRD_BGPRoute",
+    "BIRD_BGPRouteTable",
     "BIRD_Ping",
     "BIRD_Traceroute",
 )
@@ -22,6 +23,26 @@ PLATFORMS = ["bird"]
 
 BIRD_BGPRoute = BuiltinDirective(
     id="__hyperglass_bird_bgp_route__",
+    name="BGP Route",
+    rules=[
+        RuleWithIPv4(
+            condition="0.0.0.0/0",
+            action="permit",
+            command='birdc "show route all where {target} ~ net"',
+        ),
+        RuleWithIPv6(
+            condition="::/0",
+            action="permit",
+            command='birdc "show route all where {target} ~ net"',
+        ),
+    ],
+    field=Text(description="IP Address, Prefix, or Hostname"),
+    table_output="__hyperglass_bird_bgp_route_table__",
+    platforms=PLATFORMS,
+)
+
+BIRD_BGPRouteTable = BuiltinDirective(
+    id="__hyperglass_bird_bgp_route_table__",
     name="BGP Route",
     rules=[
         RuleWithIPv4(

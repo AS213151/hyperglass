@@ -1,6 +1,7 @@
 """Built-in hyperglass plugins."""
 
 # Local
+from .bgp_route_bird import BGPRoutePluginBird
 from .bgp_route_frr import BGPRoutePluginFrr
 from .remove_command import RemoveCommand
 from .bgp_route_arista import BGPRoutePluginArista
@@ -10,6 +11,7 @@ from .mikrotik_garbage_output import MikrotikGarbageOutput
 
 __all__ = (
     "BGPRoutePluginArista",
+    "BGPRoutePluginBird",
     "BGPRoutePluginFrr",
     "BGPRoutePluginJuniper",
     "BGPRoutePluginHuawei",
