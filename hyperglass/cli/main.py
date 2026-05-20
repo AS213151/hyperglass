@@ -40,7 +40,10 @@ def _version(
 
 
 @cli.command(name="start")
-def _start(build: bool = False, workers: t.Optional[int] = None) -> None:
+def _start(
+    build: bool = typer.Option(False, "--build", is_flag=True, help="Build UI before starting"),
+    workers: t.Optional[int] = typer.Option(None, "--workers", help="Number of worker processes"),
+) -> None:
     """Start hyperglass"""
     # Project
     from hyperglass.main import run
