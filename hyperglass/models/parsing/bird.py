@@ -224,16 +224,14 @@ def parse_bird(output: t.Sequence[str]) -> "BGPRouteTable":
             best = max(prefix_routes, key=lambda r: r["local_preference"])
             best["active"] = True
 
-    # Keep only the most specific prefix(es) — only applies when all routes share
-    # the same base network (BGP Route query for a single IP/prefix).
-    # For community/AS path queries, routes have distinct prefixes so we skip this.
-    if valid_routes:
-        unique_prefixes = {ip_network(r["prefix"], strict=False).network_address for r in valid_routes}
-        if len(unique_prefixes) == 1:
-            max_prefixlen = max(
-                ip_network(r["prefix"], strict=False).prefixlen for r in valid_routes
-            )
-            valid_routes = [r for r in valid_routes if ip_network(r["prefix"], strict=False).prefixlen == max_prefixlen]
+    # Keep only the most specific prefix(es) when this is a BGP Route query
+    # (indicated by ROAs being present in the output). For community/AS path
+    # queries there are no ROAs and we want to show all distinct prefixes.
+    if valid_routes and roas:
+        max_prefixlen = max(
+            ip_network(r["prefix"], strict=False).prefixlen for r in valid_routes
+        )
+        valid_routes = [r for r in valid_routes if ip_network(r["prefix"], strict=False).prefixlen == max_prefixlen]
 
     serialized = BGPRouteTable(
         vrf="default",
