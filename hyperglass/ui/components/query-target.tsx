@@ -56,7 +56,7 @@ export const QueryTarget = (props: QueryTargetProps): JSX.Element => {
   const options = useMemo(() => buildOptions(directive), [directive]);
   const isSelect = useMemo(() => directive !== null && isSelectDirective(directive), [directive]);
   const isIpTarget = useMemo(
-    () => directive !== null && directive.groups.some(g => g === 'ipv4' || g === 'ipv6'),
+    () => directive === null || !directive.id.includes('aspath') && !directive.id.includes('origin-as') && !directive.id.includes('transit-as'),
     [directive],
   );
 
