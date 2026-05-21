@@ -200,9 +200,21 @@ def parse_bird(output: t.Sequence[str]) -> "BGPRouteTable":
     for r in routes:
         if r.get("next_hop") is None or not r["prefix"]:
             continue
+        # Skip blackhole/static routes — they are locally originated and not BGP paths
+        if r.get("route_type") in ("blackhole", "static"):
+            continue
         if roas:
             r["rpki_state"] = _rpki_state(r["prefix"], r["source_as"], roas)
         valid_routes.append({k: v for k, v in r.items() if k != "route_type"})
+
+    # For each prefix, if no BGP route is marked active (because a static/blackhole
+    # won the selection), mark the best BGP route (highest local_pref) as active.
+    prefixes_with_active = {r["prefix"] for r in valid_routes if r["active"]}
+    for prefix in {r["prefix"] for r in valid_routes} - prefixes_with_active:
+        prefix_routes = [r for r in valid_routes if r["prefix"] == prefix]
+        if prefix_routes:
+            best = max(prefix_routes, key=lambda r: r["local_preference"])
+            best["active"] = True
 
     # Keep only the most specific prefix(es) — only applies when all routes share
     # the same base network (BGP Route query for a single IP/prefix).
