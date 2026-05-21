@@ -24,7 +24,7 @@ _RE_ROUTE_HEADER = re.compile(
 
 # Matches RPKI table entries: 8.8.8.0/24-24 AS15169
 _RE_RPKI_ENTRY = re.compile(
-    r"^(?P<prefix>\S+)/(?P<max_len>\d+)\s+AS(?P<origin_as>\d+)"
+    r"^(?P<prefix>[\d\.a-fA-F:]+/\d+)-(?P<max_len>\d+)\s+AS(?P<origin_as>\d+)"
 )
 
 _RE_VIA = re.compile(r"^\s+via\s+(?P<next_hop>\S+)")
