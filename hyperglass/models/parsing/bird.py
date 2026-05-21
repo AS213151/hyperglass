@@ -125,6 +125,10 @@ def parse_bird(output: t.Sequence[str]) -> "BGPRouteTable":
                     route["local_preference"] = int(value) if value else 100
                 elif key == "med":
                     route["med"] = int(value) if value else 0
+                elif key == "next_hop":
+                    # IPv6 next_hop may have two addresses: global + link-local
+                    # Take only the first (global) one
+                    route["next_hop"] = value.split()[0] if value else ""
                 elif key == "community":
                     route["communities"] += _parse_communities(value)
                 elif key == "large_community":

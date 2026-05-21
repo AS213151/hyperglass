@@ -160,8 +160,36 @@ Table rpki4:
                       [rpki2 2026-04-10 07:58:43] (100)
         Type: RPKI univ"""
 
-SAMPLE_EMPTY = "BIRD 2.17.1 ready.\n"
-
+SAMPLE_IPV6 = """BIRD 2.17.1 ready.
+Table master6:
+2001:4860::/32       unicast [meerfarbig6 2026-03-31 15:39:05] * (100) [AS15169i]
+        via 2a00:f820:597::1 on eth1
+        Type: BGP univ
+        BGP.origin: IGP
+        BGP.as_path: 34549 15169
+        BGP.next_hop: 2a00:f820:597::1 fe80::21d:b502:55a2:5fc0
+        BGP.local_pref: 50
+        BGP.community:
+        BGP.ext_community:
+        BGP.large_community: (213151, 1000, 1) (213151, 200, 34549)
+                     unicast [he6 2026-03-08 02:53:37] (100) [AS15169i]
+        via 2001:7f8:33::a100:6939:1 on eth2
+        Type: BGP univ
+        BGP.origin: IGP
+        BGP.as_path: 6939 15169
+        BGP.next_hop: 2001:7f8:33::a100:6939:1 fe80::4288:2fff:febc:3e0b
+        BGP.local_pref: 50
+        BGP.community:
+        BGP.ext_community:
+        BGP.large_community: (213151, 1000, 2) (213151, 200, 6939)
+                     unreachable [core_de_fra2_6 2026-04-03 18:38:56 from 2a06:e881:7300:ff01::2] (100) [AS15169i]
+        Type: BGP univ
+        BGP.origin: IGP
+        BGP.as_path: 214292 15169
+        BGP.next_hop: 2001:7f8::3:4514:0:1
+        BGP.med: 100
+        BGP.local_pref: 150
+        BGP.large_community: (213151, 300, 6695) (213151, 1000, 1)"""
 
 # ---------------------------------------------------------------------------
 # Tests
@@ -274,3 +302,28 @@ def test_atomic_aggr_does_not_crash():
     # 8.0.0.0/12 has BGP.atomic_aggr with no value — should parse fine
     aggr = next(r for r in result.routes if r.prefix == "8.0.0.0/12")
     assert aggr is not None
+
+
+def test_ipv6_next_hop_takes_global_address():
+    result = parse_bird([SAMPLE_IPV6])
+    active = next(r for r in result.routes if r.active)
+    # Should be the global address, not the fe80:: link-local
+    assert active.next_hop == "2a00:f820:597::1"
+    assert not active.next_hop.startswith("fe80")
+
+
+def test_ipv6_prefix_parsed():
+    result = parse_bird([SAMPLE_IPV6])
+    assert all(r.prefix == "2001:4860::/32" for r in result.routes)
+
+
+def test_ipv6_unreachable_excluded():
+    result = parse_bird([SAMPLE_IPV6])
+    peers = [r.peer_rid for r in result.routes]
+    assert "core_de_fra2_6" not in peers
+
+
+def test_ipv6_route_count():
+    result = parse_bird([SAMPLE_IPV6])
+    # 3 routes, 1 unreachable filtered → 2
+    assert result.count == 2
