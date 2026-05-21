@@ -144,7 +144,11 @@ def parse_bird(output: t.Sequence[str]) -> "BGPRouteTable":
             routes.append(route)
 
     # Filter out routes with no valid next_hop (unreachable with no next_hop set)
-    valid_routes = [r for r in routes if r.get("next_hop") is not None and r["prefix"]]
+    valid_routes = [
+        {k: v for k, v in r.items() if k != "route_type"}
+        for r in routes
+        if r.get("next_hop") is not None and r["prefix"]
+    ]
 
     serialized = BGPRouteTable(
         vrf="default",
