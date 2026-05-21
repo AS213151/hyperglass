@@ -141,7 +141,24 @@ Table master4:
         BGP.next_hop: 80.81.193.221
         BGP.med: 100
         BGP.local_pref: 150
-        BGP.large_community: (213151, 300, 6695) (213151, 1000, 1)"""
+        BGP.large_community: (213151, 300, 6695) (213151, 1000, 1)
+8.0.0.0/12           unicast [meerfarbig4 2026-03-08 02:53:32] * (100) [AS3356i]
+        via 80.77.16.225 on eth1
+        Type: BGP univ
+        BGP.origin: IGP
+        BGP.as_path: 34549 2914 3356
+        BGP.next_hop: 80.77.16.225
+        BGP.local_pref: 50
+        BGP.atomic_aggr:
+        BGP.community:
+        BGP.ext_community:
+        BGP.large_community: (213151, 1000, 2) (213151, 200, 34549)
+
+Table rpki4:
+8.8.8.0/24-24 AS15169  [rpki1 2026-03-08 02:55:02] * (100)
+        Type: RPKI univ
+                      [rpki2 2026-04-10 07:58:43] (100)
+        Type: RPKI univ"""
 
 SAMPLE_EMPTY = "BIRD 2.17.1 ready.\n"
 
@@ -237,6 +254,23 @@ def test_route_count():
 
 def test_multiple_prefixes_in_one_response():
     result = parse_bird([SAMPLE_8_8_8_0])
-    # 2 routes, 1 unreachable filtered → 1
-    assert result.count == 1
-    assert result.routes[0].prefix == "8.8.8.0/24"
+    # 3 routes across 2 prefixes, 1 unreachable filtered → 2
+    assert result.count == 2
+    prefixes = {r.prefix for r in result.routes}
+    assert "8.8.8.0/24" in prefixes
+    assert "8.0.0.0/12" in prefixes
+
+
+def test_rpki_table_ignored():
+    result = parse_bird([SAMPLE_8_8_8_0])
+    # No RPKI entries should appear as routes
+    for r in result.routes:
+        assert "-" not in r.prefix  # RPKI prefixes have format 8.8.8.0/24-24
+        assert r.peer_rid not in ("rpki1", "rpki2")
+
+
+def test_atomic_aggr_does_not_crash():
+    result = parse_bird([SAMPLE_8_8_8_0])
+    # 8.0.0.0/12 has BGP.atomic_aggr with no value — should parse fine
+    aggr = next(r for r in result.routes if r.prefix == "8.0.0.0/12")
+    assert aggr is not None

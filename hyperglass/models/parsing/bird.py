@@ -24,7 +24,6 @@ _RE_ROUTE_HEADER = re.compile(
 _RE_VIA = re.compile(r"^\s+via\s+(?P<next_hop>\S+)")
 _RE_ATTR = re.compile(r"^\s+BGP\.(?P<key>\w+):\s*(?P<value>.*)")
 
-
 def _parse_since(since: str) -> int:
     """Convert a BIRD timestamp string to an age in seconds."""
     since = since.strip().split(" from ")[0].strip()
@@ -56,12 +55,26 @@ def parse_bird(output: t.Sequence[str]) -> "BGPRouteTable":
     """Parse BIRD 2.x 'show route all' text output into a BGPRouteTable."""
     routes = []
     current_prefix: t.Optional[str] = None
+    in_bgp_table = False
 
     for response in output:
         lines = response.splitlines()
         route: t.Optional[t.Dict] = None
 
         for line in lines:
+            # Track which table we're in — only parse BGP tables
+            if line.startswith("Table "):
+                if route is not None:
+                    routes.append(route)
+                    route = None
+                table_name = line.split()[1].rstrip(":")
+                in_bgp_table = table_name.startswith(("master", "bgp"))
+                current_prefix = None
+                continue
+
+            if not in_bgp_table:
+                continue
+
             header_match = _RE_ROUTE_HEADER.match(line)
             if header_match:
                 # Save previous route
@@ -120,6 +133,7 @@ def parse_bird(output: t.Sequence[str]) -> "BGPRouteTable":
                     # Format: "10.34.26.60 AS13335"
                     parts = value.split()
                     route["source_rid"] = parts[0] if parts else ""
+                # BGP.atomic_aggr and other flag-only attributes are intentionally ignored
                 continue
 
         if route is not None:
