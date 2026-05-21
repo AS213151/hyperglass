@@ -9,6 +9,7 @@ from datetime import datetime, timezone
 # Project
 from hyperglass.log import log
 from hyperglass.models.data import BGPRouteTable
+from hyperglass.external.rpki import rpki_state as external_rpki_state
 
 # Matches the start of a new prefix block, e.g.:
 #   1.1.1.0/24           unicast [cloudflare1_4 2026-03-08 02:53:48] * (100) [AS13335i]
@@ -204,7 +205,14 @@ def parse_bird(output: t.Sequence[str]) -> "BGPRouteTable":
         if r.get("route_type") in ("blackhole", "static"):
             continue
         if roas:
+            # Use router RPKI table if available
             r["rpki_state"] = _rpki_state(r["prefix"], r["source_as"], roas)
+        elif r["source_as"] != 0:
+            # Fall back to external Cloudflare RPKI API when no ROAs in output
+            try:
+                r["rpki_state"] = external_rpki_state(r["prefix"], r["source_as"])
+            except Exception:
+                pass
         valid_routes.append({k: v for k, v in r.items() if k != "route_type"})
 
     # For each prefix, if no BGP route is marked active (because a static/blackhole
