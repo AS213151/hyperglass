@@ -43,11 +43,7 @@ class BGPRoutePluginBird(OutputPlugin):
         if not should_process:
             return output
         try:
-            log.bind(raw=output).debug("BIRD raw output")
             return parse_bird(output)
         except Exception as err:
-            import sys, traceback
-            print(f"BIRD PARSE ERROR: {err}", file=sys.stderr)
-            print(f"BIRD RAW OUTPUT: {output!r}", file=sys.stderr)
-            traceback.print_exc(file=sys.stderr)
+            log.bind(error=str(err)).critical("Failed to parse BIRD output")
             raise ParsingError("Error parsing response data") from err

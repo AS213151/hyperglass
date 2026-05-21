@@ -55,11 +55,11 @@ def parse_bird(output: t.Sequence[str]) -> "BGPRouteTable":
     """Parse BIRD 2.x 'show route all' text output into a BGPRouteTable."""
     routes = []
     current_prefix: t.Optional[str] = None
-    in_bgp_table = False
 
     for response in output:
         lines = response.splitlines()
         route: t.Optional[t.Dict] = None
+        in_bgp_table = True  # reset for each device response
 
         for line in lines:
             # Track which table we're in — only parse BGP tables
