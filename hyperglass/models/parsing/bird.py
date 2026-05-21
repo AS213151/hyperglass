@@ -204,13 +204,16 @@ def parse_bird(output: t.Sequence[str]) -> "BGPRouteTable":
             r["rpki_state"] = _rpki_state(r["prefix"], r["source_as"], roas)
         valid_routes.append({k: v for k, v in r.items() if k != "route_type"})
 
-    # Keep only the most specific prefix(es) — filters out covering aggregates
-    # when an IP address was queried (e.g. 8.8.8.8 returns 8.8.8.0/24, 8.0.0.0/9, 8.0.0.0/12)
+    # Keep only the most specific prefix(es) — only applies when all routes share
+    # the same base network (BGP Route query for a single IP/prefix).
+    # For community/AS path queries, routes have distinct prefixes so we skip this.
     if valid_routes:
-        max_prefixlen = max(
-            ip_network(r["prefix"], strict=False).prefixlen for r in valid_routes
-        )
-        valid_routes = [r for r in valid_routes if ip_network(r["prefix"], strict=False).prefixlen == max_prefixlen]
+        unique_prefixes = {ip_network(r["prefix"], strict=False).network_address for r in valid_routes}
+        if len(unique_prefixes) == 1:
+            max_prefixlen = max(
+                ip_network(r["prefix"], strict=False).prefixlen for r in valid_routes
+            )
+            valid_routes = [r for r in valid_routes if ip_network(r["prefix"], strict=False).prefixlen == max_prefixlen]
 
     serialized = BGPRouteTable(
         vrf="default",

@@ -28,7 +28,11 @@ class BGPRoutePluginBird(OutputPlugin):
 
     _hyperglass_builtin: bool = PrivateAttr(True)
     platforms: t.Sequence[str] = ("bird",)
-    directives: t.Sequence[str] = ("__hyperglass_bird_bgp_route_table__",)
+    directives: t.Sequence[str] = (
+        "__hyperglass_bird_bgp_route_table__",
+        "bird-bgp-community",
+        "bird-bgp-aspath",
+    )
 
     def process(self, *, output: "OutputType", query: "Query") -> "OutputType":
         """Parse BIRD response if data is a string (and is therefore unparsed)."""
