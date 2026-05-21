@@ -19,7 +19,6 @@ const _RequeryButton: React.ForwardRefRenderFunction<HTMLButtonElement, RequeryB
     <Tooltip hasArrow label="Reload Query" placement="top">
       <Button
         mx={1}
-        as="a"
         ref={ref}
         size="sm"
         zIndex="1"
