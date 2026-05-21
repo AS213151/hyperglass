@@ -1,4 +1,5 @@
 hyperglass/hyperglass/static
+test-config/
 **/node_modules
 **/node_modules/.pnpm
 .DS_Store
