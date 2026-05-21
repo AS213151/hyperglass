@@ -21,4 +21,4 @@ WORKDIR /opt/hyperglass
 RUN pip3 install -e .
 
 EXPOSE ${HYPERGLASS_PORT}
-CMD ["python3", "-m", "hyperglass.console", "start"]
+CMD ["python3", "-c", "from hyperglass.main import run; run()"]
