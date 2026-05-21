@@ -38,6 +38,7 @@ BIRD_BGPRoute = BuiltinDirective(
     ],
     field=Text(description="IP Address, Prefix, or Hostname"),
     table_output="__hyperglass_bird_bgp_route_table__",
+    groups=["ipv4", "ipv6"],
     platforms=PLATFORMS,
 )
 
@@ -57,6 +58,7 @@ BIRD_BGPRouteTable = BuiltinDirective(
         ),
     ],
     field=Text(description="IP Address, Prefix, or Hostname"),
+    groups=["ipv4", "ipv6"],
     platforms=PLATFORMS,
 )
 
@@ -108,6 +110,7 @@ BIRD_Ping = BuiltinDirective(
         ),
     ],
     field=Text(description="IP Address, Prefix, or Hostname"),
+    groups=["ipv4", "ipv6"],
     platforms=PLATFORMS,
 )
 
@@ -127,5 +130,6 @@ BIRD_Traceroute = BuiltinDirective(
         ),
     ],
     field=Text(description="IP Address, Prefix, or Hostname"),
+    groups=["ipv4", "ipv6"],
     platforms=PLATFORMS,
 )

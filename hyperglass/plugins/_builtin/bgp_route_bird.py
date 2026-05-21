@@ -32,6 +32,8 @@ class BGPRoutePluginBird(OutputPlugin):
         "__hyperglass_bird_bgp_route_table__",
         "bird-bgp-community",
         "bird-bgp-aspath",
+        "bird-bgp-origin-as",
+        "bird-bgp-transit-as",
     )
 
     def process(self, *, output: "OutputType", query: "Query") -> "OutputType":

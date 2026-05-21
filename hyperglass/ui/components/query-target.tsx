@@ -55,6 +55,10 @@ export const QueryTarget = (props: QueryTargetProps): JSX.Element => {
 
   const options = useMemo(() => buildOptions(directive), [directive]);
   const isSelect = useMemo(() => directive !== null && isSelectDirective(directive), [directive]);
+  const isIpTarget = useMemo(
+    () => directive !== null && directive.groups.some(g => g === 'ipv4' || g === 'ipv6'),
+    [directive],
+  );
 
   function handleInputChange(e: React.ChangeEvent<HTMLInputElement>): void {
     setTarget({ display: e.target.value });
@@ -104,7 +108,7 @@ export const QueryTarget = (props: QueryTargetProps): JSX.Element => {
             }}
           />
           <InputRightElement w="max-content" pr={2}>
-            <UserIP setTarget={handleUserIPChange} />
+            {isIpTarget && <UserIP setTarget={handleUserIPChange} />}
           </InputRightElement>
         </InputGroup>
       )}
