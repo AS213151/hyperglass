@@ -3,6 +3,7 @@
 # Standard Library
 import re
 import typing as t
+from ipaddress import ip_network
 from datetime import datetime, timezone
 
 # Project
@@ -21,8 +22,47 @@ _RE_ROUTE_HEADER = re.compile(
     r"(?:\[AS(?P<source_as>\d+).*?\])?"
 )
 
+# Matches RPKI table entries: 8.8.8.0/24-24 AS15169
+_RE_RPKI_ENTRY = re.compile(
+    r"^(?P<prefix>\S+)/(?P<max_len>\d+)\s+AS(?P<origin_as>\d+)"
+)
+
 _RE_VIA = re.compile(r"^\s+via\s+(?P<next_hop>\S+)")
 _RE_ATTR = re.compile(r"^\s+BGP\.(?P<key>\w+):\s*(?P<value>.*)")
+
+# RPKI state values matching hyperglass convention
+_RPKI_VALID = 1
+_RPKI_INVALID = 0
+_RPKI_NOT_FOUND = 2
+_RPKI_NOT_VALIDATED = 3
+
+
+class _Roa(t.NamedTuple):
+    """A single ROA entry from the RPKI table."""
+    network: t.Any  # ip_network object
+    max_len: int
+    origin_as: int
+
+
+def _rpki_state(prefix: str, origin_as: int, roas: t.List[_Roa]) -> int:
+    """Determine RPKI validity of a prefix/origin_as pair against a list of ROAs."""
+    try:
+        net = ip_network(prefix, strict=False)
+    except ValueError:
+        return _RPKI_NOT_VALIDATED
+
+    # ROAs whose network contains this prefix and whose max_len allows this prefix length
+    covering = [
+        r for r in roas
+        if net.subnet_of(r.network) or net == r.network
+        and net.prefixlen <= r.max_len
+    ]
+
+    if not covering:
+        return _RPKI_NOT_FOUND
+    if any(r.origin_as == origin_as for r in covering):
+        return _RPKI_VALID
+    return _RPKI_INVALID
 
 def _parse_since(since: str) -> int:
     """Convert a BIRD timestamp string to an age in seconds."""
@@ -54,22 +94,39 @@ def _parse_as_path(raw: str) -> t.List[int]:
 def parse_bird(output: t.Sequence[str]) -> "BGPRouteTable":
     """Parse BIRD 2.x 'show route all' text output into a BGPRouteTable."""
     routes = []
+    roas: t.List[_Roa] = []
     current_prefix: t.Optional[str] = None
 
     for response in output:
         lines = response.splitlines()
         route: t.Optional[t.Dict] = None
-        in_bgp_table = True  # reset for each device response
+        in_bgp_table = True
+        in_rpki_table = False
 
         for line in lines:
-            # Track which table we're in — only parse BGP tables
+            # Track which table we're in
             if line.startswith("Table "):
                 if route is not None:
                     routes.append(route)
                     route = None
                 table_name = line.split()[1].rstrip(":")
                 in_bgp_table = table_name.startswith(("master", "bgp"))
+                in_rpki_table = table_name.startswith("rpki")
                 current_prefix = None
+                continue
+
+            # Collect ROA entries from RPKI tables
+            if in_rpki_table:
+                rpki_match = _RE_RPKI_ENTRY.match(line)
+                if rpki_match:
+                    try:
+                        roas.append(_Roa(
+                            network=ip_network(rpki_match.group("prefix"), strict=False),
+                            max_len=int(rpki_match.group("max_len")),
+                            origin_as=int(rpki_match.group("origin_as")),
+                        ))
+                    except ValueError:
+                        pass
                 continue
 
             if not in_bgp_table:
@@ -77,7 +134,6 @@ def parse_bird(output: t.Sequence[str]) -> "BGPRouteTable":
 
             header_match = _RE_ROUTE_HEADER.match(line)
             if header_match:
-                # Save previous route
                 if route is not None:
                     routes.append(route)
 
@@ -100,7 +156,7 @@ def parse_bird(output: t.Sequence[str]) -> "BGPRouteTable":
                     "weight": 0,
                     "med": 0,
                     "local_preference": 100,
-                    "rpki_state": 3,
+                    "rpki_state": _RPKI_NOT_VALIDATED,
                 }
                 continue
 
@@ -126,29 +182,27 @@ def parse_bird(output: t.Sequence[str]) -> "BGPRouteTable":
                 elif key == "med":
                     route["med"] = int(value) if value else 0
                 elif key == "next_hop":
-                    # IPv6 next_hop may have two addresses: global + link-local
-                    # Take only the first (global) one
                     route["next_hop"] = value.split()[0] if value else ""
                 elif key == "community":
                     route["communities"] += _parse_communities(value)
                 elif key == "large_community":
                     route["communities"] += _parse_large_communities(value)
                 elif key == "aggregator":
-                    # Format: "10.34.26.60 AS13335"
                     parts = value.split()
                     route["source_rid"] = parts[0] if parts else ""
-                # BGP.atomic_aggr and other flag-only attributes are intentionally ignored
                 continue
 
         if route is not None:
             routes.append(route)
 
-    # Filter out routes with no valid next_hop (unreachable with no next_hop set)
-    valid_routes = [
-        {k: v for k, v in r.items() if k != "route_type"}
-        for r in routes
-        if r.get("next_hop") is not None and r["prefix"]
-    ]
+    # Apply RPKI state from collected ROAs, then filter and clean
+    valid_routes = []
+    for r in routes:
+        if r.get("next_hop") is None or not r["prefix"]:
+            continue
+        if roas:
+            r["rpki_state"] = _rpki_state(r["prefix"], r["source_as"], roas)
+        valid_routes.append({k: v for k, v in r.items() if k != "route_type"})
 
     serialized = BGPRouteTable(
         vrf="default",
