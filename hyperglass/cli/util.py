@@ -41,6 +41,7 @@ def build_ui(timeout: int) -> None:
         )
         if build_success:
             echo.success("Completed UI build in {} mode", dev_mode)
+            return True
 
     except Exception as e:
         if not sys.stdout.isatty():
@@ -49,3 +50,5 @@ def build_ui(timeout: int) -> None:
 
         echo.error("Error building UI: {!s}", e)
         raise typer.Exit(1)
+
+    return False

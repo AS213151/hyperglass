@@ -26,7 +26,7 @@ cli = typer.Typer(name="hyperglass", help="hyperglass Command Line Interface", n
 
 def run():
     """Run the hyperglass CLI."""
-    return typer.run(cli())
+    return cli()
 
 
 @cli.callback(name="version")
